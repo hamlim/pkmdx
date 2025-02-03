@@ -1,5 +1,4 @@
 {
-  "worksers_dev": true,
   "name": "pkmdx-web-client",
   "compatibility_date": "2024-11-18",
   "compatibility_flags": ["nodejs_compat"],

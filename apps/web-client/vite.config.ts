@@ -28,6 +28,7 @@ export default defineConfig(({ isSsrBuild }) => ({
         "react-dom/server",
         "react-router",
       ],
+      exclude: ["@editorjs/editorjs"],
     },
   },
   plugins: [
