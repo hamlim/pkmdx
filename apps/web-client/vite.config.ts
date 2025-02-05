@@ -6,12 +6,21 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { getLoadContext } from "./load-context";
 
 export default defineConfig(({ isSsrBuild }) => ({
+  css: {
+    transformer: "lightningcss",
+    lightningcss: {
+      targets: {
+        chrome: 100,
+      },
+    },
+  },
   build: {
     rollupOptions: isSsrBuild
       ? {
           input: "./workers/app.ts",
         }
       : undefined,
+    cssMinify: "lightningcss",
   },
   ssr: {
     target: "webworker",
