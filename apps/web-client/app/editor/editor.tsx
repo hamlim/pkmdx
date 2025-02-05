@@ -3,9 +3,9 @@ import {
   SlashCmdProvider,
   enableKeyboardNavigation,
 } from "@harshtalks/slash-tiptap";
+import { details } from "@local/details-extension";
 import Highlight from "@tiptap/extension-highlight";
 import Typography from "@tiptap/extension-typography";
-// src/Tiptap.tsx
 import {
   BubbleMenu,
   EditorProvider,
@@ -13,7 +13,6 @@ import {
   FloatingMenu,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Details, DetailsSummary } from "./details";
 import { SlashImpl, suggestions } from "./slash";
 import "./editor.css";
 
@@ -22,8 +21,7 @@ let extensions = [
   StarterKit,
   Highlight,
   Typography,
-  Details,
-  DetailsSummary,
+  details,
   Slash.configure({
     suggestion: {
       items() {

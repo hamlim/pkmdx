@@ -37,33 +37,52 @@ export let suggestions = createSuggestionsItems([
         .focus()
         .deleteRange(range)
         .insertContent({
-          type: "react-details",
+          type: "paragraph", // Insert an empty paragraph first
           attrs: {
-            open: true,
+            class: "p-2 rounded bg-gray-100",
           },
-          content: [
-            {
-              type: "summary",
-              content: [
-                {
-                  type: "text",
-                  text: "Summary",
-                },
-              ],
-            },
-            {
-              type: "paragraph",
-              content: [
-                {
-                  type: "text",
-                  text: "Content",
-                },
-              ],
-            },
-          ],
+          content: [],
         })
         .run();
-      editor.commands.focus();
+
+      // Get the position of the last inserted node (empty paragraph)
+      let pos = editor.state.selection.$from.pos - 1; // Move before the empty paragraph
+
+      editor
+        .chain()
+        .insertDetailsAt(pos, {
+          rootAttributes: {
+            attrs: {
+              class: "p-2 rounded-2xl bg-gray-100",
+            },
+          },
+          summaryAttributes: {
+            content: [{ type: "text", text: "Summary" }],
+            attrs: {
+              class: "underline decoration-wavy text-decoration-gray-500",
+            },
+          },
+          detailsAttributes: {
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "Content" }],
+              },
+            ],
+          },
+        })
+        // Get the current cursor position
+        .command(({ tr, dispatch }) => {
+          if (dispatch) {
+            // Move cursor to end of content
+            const pos = tr.selection.$anchor.after();
+            // @ts-expect-error
+            tr.setSelection(tr.selection.constructor.near(tr.doc.resolve(pos)));
+          }
+          return true;
+        })
+        .focus()
+        .run();
     },
   },
 ]);
@@ -83,7 +102,7 @@ export function SlashImpl() {
                 }}
                 key={item.title}
               >
-                <p>{item.title}</p>
+                <p className="text-green-600">{item.title}</p>
               </SlashCmd.Item>
             );
           })}
