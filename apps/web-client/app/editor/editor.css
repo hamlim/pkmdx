@@ -52,7 +52,7 @@
   }
 
   /* Code and preformatted text styles */
-  code {
+  /* code {
     background-color: var(--purple-light);
     border-radius: 0.4rem;
     color: var(--black);
@@ -74,7 +74,7 @@
       font-size: 0.8rem;
       padding: 0;
     }
-  }
+  } */
 
   mark {
     background-color: #faf594;

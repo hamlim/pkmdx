@@ -13,6 +13,7 @@
     "typecheck": "react-router typegen && tsc -b"
   },
   "dependencies": {
+    "@local/codeblock-extension": "workspace:*",
     "@local/details-extension": "workspace:*",
     "@editorjs/editorjs": "^2.30.8",
     "@harshtalks/slash-tiptap": "^1.3.0",

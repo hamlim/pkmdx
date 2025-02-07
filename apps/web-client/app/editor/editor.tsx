@@ -15,13 +15,17 @@ import {
 import StarterKit from "@tiptap/starter-kit";
 import { SlashImpl, suggestions } from "./slash";
 import "./editor.css";
+import { codeBlockShiki } from "@local/codeblock-extension";
 
 // define your extension array
 let extensions = [
-  StarterKit,
+  StarterKit.configure({
+    codeBlock: false,
+  }),
   Highlight,
   Typography,
   details,
+  codeBlockShiki,
   Slash.configure({
     suggestion: {
       items() {
