@@ -106,6 +106,13 @@ export let suggestions = createSuggestionsItems([
       editor.chain().focus().deleteRange(range).toggleTaskList().run();
     },
   },
+  {
+    title: "Todo",
+    searchTerms: ["task", "todo"],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).toggleTaskList().run();
+    },
+  },
 ]);
 
 export function SlashImpl() {
