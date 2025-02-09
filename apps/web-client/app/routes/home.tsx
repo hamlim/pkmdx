@@ -1,13 +1,9 @@
 import * as schema from "~/database/schema";
 
 import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
 
 export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
-  ];
+  return [{ title: "PKMDX" }, { name: "description", content: "PKMDX" }];
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -47,10 +43,11 @@ export async function loader({ context }: Route.LoaderArgs) {
 
 export default function Home({ actionData, loaderData }: Route.ComponentProps) {
   return (
-    <Welcome
-      guestBook={loaderData.guestBook}
-      guestBookError={actionData?.guestBookError}
-      message={loaderData.message}
-    />
+    <h1>TODO</h1>
+    // <Welcome
+    //   guestBook={loaderData.guestBook}
+    //   guestBookError={actionData?.guestBookError}
+    //   message={loaderData.message}
+    // />
   );
 }
