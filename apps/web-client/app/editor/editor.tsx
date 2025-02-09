@@ -7,16 +7,14 @@ import { details } from "@local/details-extension";
 import Highlight from "@tiptap/extension-highlight";
 import Typography from "@tiptap/extension-typography";
 import {
-  BubbleMenu,
+  // BubbleMenu,
   EditorProvider,
   type EditorProviderProps,
-  FloatingMenu,
+  // FloatingMenu,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { SlashImpl, suggestions } from "./slash";
 import "./editor.css";
-// import { codeBlockShiki } from "@local/codeblock-extension";
-// import { CodeBlockShiki } from "@local/codeblock-extension";
 import CodeBlockShiki from "tiptap-extension-code-block-shiki";
 
 // define your extension array
