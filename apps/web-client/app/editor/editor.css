@@ -94,4 +94,14 @@
     border-top: 1px solid var(--gray-2);
     margin: 2rem 0;
   }
+
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .task-item > label + div {
+    display: inline-flex;
+  }
 }

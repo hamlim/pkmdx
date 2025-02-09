@@ -85,6 +85,27 @@ export let suggestions = createSuggestionsItems([
         .run();
     },
   },
+  {
+    title: "Code Block",
+    searchTerms: ["code", "block"],
+    command: ({ editor, range }) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .toggleCodeBlock({
+          language: "tsx",
+        })
+        .run();
+    },
+  },
+  {
+    title: "Task List",
+    searchTerms: ["task", "todo"],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).toggleTaskList().run();
+    },
+  },
 ]);
 
 export function SlashImpl() {

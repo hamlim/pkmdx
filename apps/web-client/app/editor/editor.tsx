@@ -15,7 +15,10 @@ import {
 import StarterKit from "@tiptap/starter-kit";
 import { SlashImpl, suggestions } from "./slash";
 import "./editor.css";
+import TaskItem from "@tiptap/extension-task-item";
+import TaskList from "@tiptap/extension-task-list";
 import CodeBlockShiki from "tiptap-extension-code-block-shiki";
+import { SaveButton } from "./save-button";
 
 // define your extension array
 let extensions = [
@@ -39,6 +42,13 @@ let extensions = [
       },
     },
   }),
+  TaskItem.configure({
+    nested: true,
+    HTMLAttributes: {
+      class: "task-item",
+    },
+  }),
+  TaskList,
 ];
 
 let editorProps: EditorProviderProps["editorProps"] = {
@@ -58,6 +68,7 @@ export function Editor() {
         extensions={extensions}
         content={content}
         editorProps={editorProps}
+        slotAfter={<SaveButton />}
       >
         {/* <FloatingMenu editor={null}>This is the floating menu</FloatingMenu>
       <BubbleMenu editor={null}>This is the bubble menu</BubbleMenu> */}
