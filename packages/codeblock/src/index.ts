@@ -1,231 +1,359 @@
-/// <reference lib="dom" />
-import { type Node, createStyleTag, findChildren } from "@tiptap/core";
-import type { CodeBlockOptions } from "@tiptap/extension-code-block";
-import { CodeBlock } from "@tiptap/extension-code-block";
+import { findChildren } from "@tiptap/core";
+import CodeBlock, { type CodeBlockOptions } from "@tiptap/extension-code-block";
 import type { Node as ProsemirrorNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
-import type { DecorationAttrs } from "@tiptap/pm/view";
+import { Plugin, PluginKey, type PluginView } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import type { Element } from "hast";
-import type {
-  BundledLanguage,
-  BundledTheme,
-  HighlighterGeneric,
-  StringLiteralUnion,
-} from "shiki/bundle/web";
+
 import {
-  bundledLanguagesInfo,
-  getHighlighter,
-  getSingletonHighlighter,
-} from "shiki/bundle/web";
-// import style from "./index.css";
+  type BundledLanguage,
+  type BundledTheme,
+  type Highlighter,
+  bundledLanguages,
+  bundledThemes,
+  createHighlighter,
+} from "shiki";
 
-export interface CodeBlockShikiOptions extends CodeBlockOptions {
-  theme: StringLiteralUnion<BundledTheme, string>;
+let highlighter: Highlighter | undefined;
+let highlighterPromise: Promise<void> | undefined;
+let loadingLanguages = new Set<BundledLanguage>();
+let loadingThemes = new Set<BundledTheme>();
+
+type HighlighterOptions = {
+  themes: (BundledTheme | null | undefined)[];
+  languages: (BundledLanguage | null | undefined)[];
+};
+
+export function resetHighlighter() {
+  highlighter = undefined;
+  highlighterPromise = undefined;
+  loadingLanguages.clear();
+  loadingThemes.clear();
 }
 
-export interface CodeBlockShikiStorage {
-  highlighter: HighlighterGeneric<BundledLanguage, BundledTheme> | null;
+export function getShiki() {
+  return highlighter;
 }
 
-export const codeBlockShiki: Node<
-  CodeBlockShikiOptions,
-  CodeBlockShikiStorage
-> = CodeBlock.extend<CodeBlockShikiOptions, CodeBlockShikiStorage>({
-  addOptions() {
-    return {
-      ...this.parent?.(),
-      theme: "vitesse-light",
-    };
-  },
-  addStorage() {
-    return {
-      highlighter: null,
-    };
-  },
-  async onBeforeCreate() {
-    // createStyleTag(style, undefined, "code-block-shiki");
-    this.storage.highlighter = await getSingletonHighlighter({
-      themes: [this.options.theme],
-      langs: bundledLanguagesInfo.map((item: any): any => item.id),
+/**
+ * Load the highlighter. Makes sure the highlighter is only loaded once.
+ */
+export function loadHighlighter(opts: HighlighterOptions) {
+  if (!highlighter && !highlighterPromise) {
+    let themes = opts.themes.filter(
+      (theme): theme is BundledTheme => !!theme && theme in bundledThemes,
+    );
+    let langs = opts.languages.filter(
+      (lang): lang is BundledLanguage => !!lang && lang in bundledLanguages,
+    );
+    highlighterPromise = createHighlighter({ themes, langs }).then((h) => {
+      highlighter = h;
     });
-  },
-  addProseMirrorPlugins() {
-    return [
-      ...(this.parent?.() ?? []),
-      new Plugin({
-        key: new PluginKey(this.name),
-        state: {
-          init: (_, { doc }) => {
-            return getDecorations({
-              doc,
-              name: this.name,
-              highlighter: this.storage.highlighter,
-              theme: this.options.theme,
-            });
-          },
-          apply: (transaction, decorationSet, oldState, newState) => {
-            const oldNodeName = oldState.selection.$head.parent.type.name;
-            const newNodeName = newState.selection.$head.parent.type.name;
+    return highlighterPromise;
+  }
 
-            if (
-              transaction.docChanged &&
-              ([oldNodeName, newNodeName].includes(this.name) ||
-                // only toggle language for code block
-                // @ts-expect-error attr
-                transaction.steps.find((item) => item.attr === "language"))
-            ) {
-              return getDecorations({
-                doc: transaction.doc,
-                name: this.name,
-                highlighter: this.storage.highlighter,
-                theme: this.options.theme,
-              });
-            }
-
-            return decorationSet.map(transaction.mapping, transaction.doc);
-          },
-        },
-        props: {
-          decorations(state) {
-            return this.getState(state);
-          },
-        },
-      }),
-    ];
-  },
-  addNodeView() {
-    return ({ editor, node, getPos, HTMLAttributes }) => {
-      const dom = window.document.createElement("pre");
-      dom.classList.add("note-editor__code-block-shiki");
-      for (const key of Object.keys(HTMLAttributes)) {
-        dom.setAttribute(key, HTMLAttributes[key]);
-      }
-
-      const content = window.document.createElement("code");
-      const langClass = this.options.languageClassPrefix + node.attrs.language;
-      content.classList.add(langClass);
-      dom.append(content);
-
-      if (this.editor.isEditable) {
-        const selectLang = window.document.createElement("select");
-        let classes =
-          "absolute top-1 right-1 text-xs leading-4 cursor-pointer py-0.5 px-1 rounded border border-slate-100";
-        for (let className of classes.split(" ")) {
-          selectLang.classList.add(className);
-        }
-        selectLang.addEventListener("change", (event) => {
-          // @ts-expect-error value
-          const lang = event.target.value;
-          editor.commands.command(({ tr }) => {
-            const pos = (getPos as () => number)();
-            tr.setNodeAttribute(pos, "language", lang);
-
-            return true;
-          });
-        });
-        const options = bundledLanguagesInfo.map((item) => {
-          const option = document.createElement("option");
-          option.setAttribute("value", item.id);
-          if (
-            node.attrs.language === item.id ||
-            node.attrs.language === item.name ||
-            item.aliases?.includes(node.attrs.language)
-          )
-            option.setAttribute("selected", "");
-
-          option.textContent = item.id;
-          return option;
-        });
-        selectLang.append(...options);
-        dom.append(selectLang);
-      } else {
-        const langTag = window.document.createElement("div");
-        langTag.classList.add(
-          "note-editor__code-block-shiki__lang-tag absolute top-1 right-1 text-xs leading-4 py-0.5 px-1 rounded",
-        );
-        langTag.textContent = node.attrs.language ?? "text";
-        dom.append(langTag);
-      }
-
-      return {
-        dom,
-        contentDOM: content,
-      };
-    };
-  },
-});
-
-function formatLanguage(lang: string): null | undefined | string {
-  if (!lang) return null;
-
-  return bundledLanguagesInfo.find((item) => [
-    item.id,
-    item.name,
-    ...(item.aliases ?? []),
-  ])?.id;
+  if (highlighterPromise) {
+    return highlighterPromise;
+  }
 }
 
-function getDecorations({
+/**
+ * Loads a theme if it's valid and not yet loaded.
+ * @returns true or false depending on if it got loaded.
+ */
+export async function loadTheme(theme: BundledTheme) {
+  if (
+    highlighter &&
+    !highlighter.getLoadedThemes().includes(theme) &&
+    !loadingThemes.has(theme) &&
+    theme in bundledThemes
+  ) {
+    loadingThemes.add(theme);
+    await highlighter.loadTheme(theme);
+    loadingThemes.delete(theme);
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Loads a language if it's valid and not yet loaded
+ * @returns true or false depending on if it got loaded.
+ */
+export async function loadLanguage(language: BundledLanguage) {
+  if (
+    highlighter &&
+    !highlighter.getLoadedLanguages().includes(language) &&
+    !loadingLanguages.has(language) &&
+    language in bundledLanguages
+  ) {
+    loadingLanguages.add(language);
+    await highlighter.loadLanguage(language);
+    loadingLanguages.delete(language);
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Initializes the highlighter based on the prosemirror document,
+ * with the themes and languages in the document.
+ */
+export async function initHighlighter({
   doc,
   name,
-  highlighter,
-  theme,
+  defaultTheme,
+  defaultLanguage,
 }: {
   doc: ProsemirrorNode;
   name: string;
-  highlighter: CodeBlockShikiStorage["highlighter"];
-  theme: CodeBlockShikiOptions["theme"];
+  defaultLanguage: BundledLanguage | null | undefined;
+  defaultTheme: BundledTheme;
+}) {
+  let codeBlocks = findChildren(doc, (node) => node.type.name === name);
+
+  let themes = [
+    ...codeBlocks.map((block) => block.node.attrs.theme as BundledTheme),
+    defaultTheme,
+  ];
+  let languages = [
+    ...codeBlocks.map((block) => block.node.attrs.language as BundledLanguage),
+    defaultLanguage,
+  ];
+
+  if (!highlighter) {
+    let loader = loadHighlighter({ languages, themes });
+    await loader;
+  } else {
+    await Promise.all([
+      ...themes.flatMap((theme) => loadTheme(theme)),
+      ...languages.flatMap((language) => !!language && loadLanguage(language)),
+    ]);
+  }
+}
+
+/** Create code decorations for the current document */
+function getDecorations({
+  doc,
+  name,
+  defaultTheme,
+  defaultLanguage,
+}: {
+  doc: ProsemirrorNode;
+  name: string;
+  defaultLanguage: BundledLanguage | null | undefined;
+  defaultTheme: BundledTheme;
 }) {
   let decorations: Decoration[] = [];
-  if (!highlighter) return DecorationSet.create(doc, decorations);
 
-  for (const block of findChildren(doc, (node) => node.type.name === name)) {
-    // @ts-expect-error language
-    block.node.attrs.language =
-      formatLanguage(block.node.attrs.language) ?? "text";
+  let codeBlocks = findChildren(doc, (node) => node.type.name === name);
 
-    // biome-ignore lint/style/noNonNullAssertion: <explanation>
-    const preNode = highlighter!.codeToHast(block.node.textContent, {
-      theme,
-      lang: block.node.attrs.language,
-    }).children[0] as Element;
-
-    decorations.push(
-      Decoration.node(block.pos, block.pos + block.node.nodeSize, {
-        class: `${preNode.properties?.class} relative rounded-[8px] py-[4px] px-[8px]`,
-        style: preNode.properties?.style,
-      } as DecorationAttrs),
-    );
-
+  for (let block of codeBlocks) {
     let from = block.pos + 1;
-    const lines = (preNode.children[0] as Element).children;
-    for (const line of lines) {
-      if ((line as Element).children?.length) {
-        let lineFrom = from;
-        // @ts-expect-error line type
-        for (const node of line.children) {
-          const nodeLen = node.children[0].value.length;
-          decorations.push(
-            Decoration.inline(
-              lineFrom,
-              lineFrom + nodeLen,
-              (node as Element).properties as DecorationAttrs,
-            ),
-          );
-          lineFrom += nodeLen;
-        }
+    let language = block.node.attrs.language || defaultLanguage;
+    let theme = block.node.attrs.theme || defaultTheme;
 
-        // prosemirror do not support add wrap for line
-        // decorations.push(Decoration.inline(from, lineFrom, line.properties as DecorationAttrs))
-        from = lineFrom;
-      } else if (line.type === "text") {
-        from += line.value.length;
+    let highlighter = getShiki();
+
+    if (!highlighter) return;
+
+    if (!highlighter.getLoadedLanguages().includes(language)) {
+      language = "plaintext";
+    }
+
+    let themeToApply = highlighter.getLoadedThemes().includes(theme)
+      ? theme
+      : highlighter.getLoadedThemes()[0];
+
+    let tokens = highlighter.codeToTokensBase(block.node.textContent, {
+      lang: language,
+      theme: themeToApply,
+    });
+
+    for (let line of tokens) {
+      for (let token of line) {
+        let to = from + token.content.length;
+
+        let decoration = Decoration.inline(from, to, {
+          style: `color: ${token.color}`,
+        });
+
+        decorations.push(decoration);
+
+        from = to;
       }
+
+      from += 1;
     }
   }
 
-  decorations = decorations.filter((item) => !!item);
-
   return DecorationSet.create(doc, decorations);
 }
+
+export function ShikiPlugin({
+  name,
+  defaultLanguage,
+  defaultTheme,
+}: {
+  name: string;
+  defaultLanguage: BundledLanguage | null | undefined;
+  defaultTheme: BundledTheme;
+}) {
+  let shikiPlugin: Plugin<any> = new Plugin({
+    key: new PluginKey("shiki"),
+
+    view(view) {
+      // This small view is just for initial async handling
+      class ShikiPluginView implements PluginView {
+        constructor() {
+          this.initDecorations();
+        }
+
+        update() {
+          this.checkUndecoratedBlocks();
+        }
+        destroy() {}
+
+        // Initialize shiki async, and then highlight initial document
+        async initDecorations() {
+          let doc = view.state.doc;
+          await initHighlighter({ doc, name, defaultLanguage, defaultTheme });
+          let tr = view.state.tr.setMeta("shikiPluginForceDecoration", true);
+          view.dispatch(tr);
+        }
+
+        // When new codeblocks were added and they have missing themes or
+        // languages, load those and then add code decorations once again.
+        async checkUndecoratedBlocks() {
+          let codeBlocks = findChildren(
+            view.state.doc,
+            (node) => node.type.name === name,
+          );
+
+          // Load missing themes or languages when necessary.
+          // loadStates is an array with booleans depending on if a theme/lang
+          // got loaded.
+          let loadStates = await Promise.all(
+            codeBlocks.flatMap((block) => [
+              loadTheme(block.node.attrs.theme),
+              loadLanguage(block.node.attrs.language),
+            ]),
+          );
+          let didLoadSomething = loadStates.includes(true);
+
+          // The asynchronous nature of this is potentially prone to
+          // race conditions. Imma just hope it's fine lol
+
+          if (didLoadSomething) {
+            let tr = view.state.tr.setMeta("shikiPluginForceDecoration", true);
+            view.dispatch(tr);
+          }
+        }
+      }
+
+      return new ShikiPluginView();
+    },
+
+    state: {
+      init: (_, { doc }) => {
+        return getDecorations({
+          doc,
+          name,
+          defaultLanguage,
+          defaultTheme,
+        });
+      },
+      apply: (transaction, decorationSet, oldState, newState) => {
+        let oldNodeName = oldState.selection.$head.parent.type.name;
+        let newNodeName = newState.selection.$head.parent.type.name;
+        let oldNodes = findChildren(
+          oldState.doc,
+          (node) => node.type.name === name,
+        );
+        let newNodes = findChildren(
+          newState.doc,
+          (node) => node.type.name === name,
+        );
+
+        let didChangeSomeCodeBlock =
+          transaction.docChanged &&
+          // Apply decorations if:
+          // selection includes named node,
+          ([oldNodeName, newNodeName].includes(name) ||
+            // OR transaction adds/removes named node,
+            newNodes.length !== oldNodes.length ||
+            // OR transaction has changes that completely encapsulte a node
+            // (for example, a transaction that affects the entire document).
+            // Such transactions can happen during collab syncing via y-prosemirror, for example.
+            transaction.steps.some((step) => {
+              // @ts-ignore
+              return (
+                // @ts-ignore
+                step.from !== undefined &&
+                // @ts-ignore
+                step.to !== undefined &&
+                oldNodes.some((node) => {
+                  // @ts-ignore
+                  return (
+                    // @ts-ignore
+                    node.pos >= step.from &&
+                    // @ts-ignore
+                    node.pos + node.node.nodeSize <= step.to
+                  );
+                })
+              );
+            }));
+
+        // only create code decoration when it's necessary to do so
+        if (
+          transaction.getMeta("shikiPluginForceDecoration") ||
+          didChangeSomeCodeBlock
+        ) {
+          return getDecorations({
+            doc: transaction.doc,
+            name,
+            defaultLanguage,
+            defaultTheme,
+          });
+        }
+
+        return decorationSet.map(transaction.mapping, transaction.doc);
+      },
+    },
+
+    props: {
+      decorations(state) {
+        return shikiPlugin.getState(state);
+      },
+    },
+  });
+
+  return shikiPlugin;
+}
+
+export interface CodeBlockShikiOptions extends CodeBlockOptions {
+  defaultLanguage: BundledLanguage | null | undefined;
+  defaultTheme: BundledTheme;
+}
+
+export let CodeBlockShiki = CodeBlock.extend<CodeBlockShikiOptions>({
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      defaultLanguage: null,
+      defaultTheme: "github-dark",
+    };
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      ...(this.parent?.() || []),
+      ShikiPlugin({
+        name: this.name,
+        defaultLanguage: this.options.defaultLanguage,
+        defaultTheme: this.options.defaultTheme,
+      }),
+    ];
+  },
+});
